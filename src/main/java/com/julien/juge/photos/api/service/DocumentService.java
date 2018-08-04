@@ -22,15 +22,15 @@ import java.util.Map;
 
 @Slf4j
 @Service
-public class DocumentServiceImpl {
+public class DocumentService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DocumentService.class);
 
     private final CMISServiceImpl cmisService;
     private final BinaryExtractor binaryExtractor;
 
     @Autowired
-    public DocumentServiceImpl(CMISServiceImpl cmisService, BinaryExtractor binaryExtractor) {
+    public DocumentService(CMISServiceImpl cmisService, BinaryExtractor binaryExtractor) {
         this.cmisService = cmisService;
         this.binaryExtractor = binaryExtractor;
     }

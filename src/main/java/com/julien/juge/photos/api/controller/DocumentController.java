@@ -1,8 +1,9 @@
 package com.julien.juge.photos.api.controller;
 
 import com.google.common.io.ByteStreams;
-import com.ibm.wsdl.util.StringUtils;
-import com.julien.juge.photos.api.service.DocumentServiceImpl;
+import com.julien.juge.photos.api.dto.input.DocumentRequestDto;
+import com.julien.juge.photos.api.service.AccessService;
+import com.julien.juge.photos.api.service.DocumentService;
 import com.julien.juge.photos.api.utils.DocumentPath;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivecouchbase.json.JsArray;
@@ -12,9 +13,11 @@ import org.reactivecouchbase.json.Json;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.Errors;
 import org.springframework.web.bind.annotation.*;
 import rx.Observable;
 
+import javax.validation.Valid;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
@@ -26,22 +29,28 @@ import java.util.Base64;
 @CrossOrigin(origins = "*")
 public class DocumentController {
 
+    private DocumentService documentService;
+
+    private AccessService accessService;
+
     @Autowired
-    private DocumentServiceImpl documentService;
+    public DocumentController(DocumentService documentService, AccessService accessService) {
+        this.documentService = documentService;
+        this.accessService = accessService;
+    }
+
 
     @RequestMapping(
-            method = RequestMethod.GET,
+            path = "search",
+            method = RequestMethod.POST,
             produces = MediaType.APPLICATION_JSON_UTF8_VALUE
     )
-    public Observable<ResponseEntity<JsArray>> getDocuments() {
+    public Observable<ResponseEntity<JsArray>> getDocuments(@RequestBody @Valid DocumentRequestDto documentRequestDto, Errors errors) {
 
+        DocumentPath documentPath = new DocumentPath("CLIENTS", documentRequestDto.getClientId());
 
-
-        log.info(Json.obj().with("key", "value").stringify());
-
-        DocumentPath documentPath = new DocumentPath("CLIENTS", "0000000001");
-
-        return documentService.findAllByPath(documentPath).map(document -> document.toJson()).toList().map(Json::arr).map(ResponseEntity::ok);
+        return accessService.isOk(documentRequestDto.getClientId(), documentRequestDto.getPassword())
+        .flatMap(isOk -> isOk ? documentService.findAllByPath(documentPath).map(document -> document.toJson()).toList().map(Json::arr) : Observable.just(Json.obj().with("erreur", "mot de passe incorrect")).toList().map(Json::arr)).map(ResponseEntity::ok);
 
     }
 
