@@ -1,0 +1,10 @@
+{
+  "name": "khast-api",
+  "version": "1.0.0",
+  "description": "Khast API",
+  "title": "Khast API",
+  "template": {
+  	"withCompare": true,
+  	"withGenerator": true
+  }
+}

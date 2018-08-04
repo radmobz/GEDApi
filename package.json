@@ -1,0 +1,11 @@
+{
+  "name": "photoapi",
+  "version": "1.0.0",
+  "description": "GEDApi",
+  "dependencies": {
+    "apidoc": "^0.17.5"
+  },
+  "scripts": {
+    "doc": "apidoc -i src/main/java/com/julien/juge/photos/api -o src/main/resources/public/api-doc/photos"
+  }
+}
