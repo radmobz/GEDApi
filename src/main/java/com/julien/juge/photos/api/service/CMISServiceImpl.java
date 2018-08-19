@@ -1,13 +1,15 @@
 package com.julien.juge.photos.api.service;
 
 import com.julien.juge.photos.api.utils.CMISSession;
-import org.apache.chemistry.opencmis.client.api.CmisObject;
-import org.apache.chemistry.opencmis.client.api.Document;
-import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.Session;
+import com.julien.juge.photos.api.utils.DocumentPath;
+import io.vavr.collection.List;
+import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisContentAlreadyExistsException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,8 @@ import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,6 +67,15 @@ public class CMISServiceImpl {
         // Le répertoire (path) sera créé s'il n'existe pas
         return createTreeFolder(folderPath)
                 .flatMap(folder -> createDocument(folder, fileName, content, mimeType, documentProperties));
+    }
+
+    /* (non-Javadoc)
+     * @see com.altima.api.document.service.ICMISService#createDocument(java.lang.String, java.lang.String, byte[], java.lang.String, java.util.Map)
+     */
+    public Observable<Folder> createFolder(String folderPath) {
+
+        // Le répertoire (path) sera créé s'il n'existe pas
+        return createTreeFolder(folderPath);
     }
 
     /**
@@ -204,6 +217,23 @@ public class CMISServiceImpl {
     }
 
     /* (non-Javadoc)
+     * @see com.altima.api.document.service.ICMISService#getDocumentById(java.lang.String)
+     */
+    public Document copyById(Folder destination, String id) {
+        return Observable.just(session.getObject(id))
+                .filter(cmisObject -> cmisObject instanceof Document)
+                .map(document -> (Document) document)
+                .map(document -> {
+                    try {
+                        return document.copy(destination);
+                    }
+                    catch (CmisContentAlreadyExistsException cmisContentAlreadyExistsException) {
+                        return document;
+                    }
+                }).toBlocking().first();
+    }
+
+    /* (non-Javadoc)
      * @see com.altima.api.document.service.ICMISService#getDocumentByPath(java.lang.String)
      */
     public Observable<Document> getDocumentByPath(String documentPath) {
@@ -213,6 +243,27 @@ public class CMISServiceImpl {
                 .map(document -> document.getObjectOfLatestVersion(false));
     }
 
+    /* (non-Javadoc)
+     * @see com.altima.api.document.service.ICMISService#getChildrenDocument(java.lang.String)
+     */
+    public Observable<Folder> getChildrenFolder(String folderPath) {
+        return getFolderByPath(folderPath)
+                .flatMap(this::getChildrenFolder);
+    }
+
+    /**
+     * Renvoie les {@link Document} présents à la racine d'un {@link Folder}
+     *
+     * @param folder répertoire
+     * @return Documents
+     */
+    private Observable<Folder> getChildrenFolder(Folder folder) {
+
+        return Observable.from(io.vavr.collection.List.ofAll(folder.getChildren())
+                .filter(content -> content instanceof Folder)
+                .map(doc -> (Folder) doc)
+        );
+    }
 
     /* (non-Javadoc)
      * @see com.altima.api.document.service.ICMISService#getChildrenDocument(java.lang.String)
@@ -242,7 +293,7 @@ public class CMISServiceImpl {
      * @param folderPath chemin du folder
      * @return Folder
      */
-    private Observable<Folder> getFolderByPath(String folderPath) {
+    public Observable<Folder> getFolderByPath(String folderPath) {
 
         return Observable.just(session.getObjectByPath(folderPath))
                 .filter(cmisObject -> cmisObject instanceof Folder)

@@ -25,6 +25,7 @@ public class Document {
     public final LocalDateTime dateModification;
     public final String path;
     public final String base64;
+    public final String thumb;
 
     public JsValue toJson() {
         return Json.obj()
@@ -42,6 +43,7 @@ public class Document {
                 .withString("mime-type", Option.apply(content).map(ContentStream::getMimeType))
                 .withLong("length", Option.apply(content).map(ContentStream::getLength))
                 .withString("path", Option.apply(path))
-                .withString("base64", Option.apply(base64));
+                .withString("base64", Option.apply(base64))
+                .withString("thumb", Option.apply(thumb));
     }
 }

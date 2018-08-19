@@ -1,10 +1,12 @@
 package com.julien.juge.photos.api.dto.input;
 
+import lombok.Builder;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
 
 @Data
+@Builder
 public class MailDto {
 
     @NotNull(message = "L'adresse email est obligatoire")

@@ -5,8 +5,14 @@ import com.julien.juge.photos.api.models.Document;
 import com.julien.juge.photos.api.models.DocumentFactory;
 import com.julien.juge.photos.api.utils.BinaryExtractor;
 import com.julien.juge.photos.api.utils.DocumentPath;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.Session;
+import org.reactivecouchbase.json.JsArray;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +20,19 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import rx.Observable;
+import sun.misc.BASE64Decoder;
+import sun.misc.BASE64Encoder;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import javax.print.Doc;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
@@ -117,28 +135,53 @@ public class DocumentService {
         return cmisService.downloadByPath(path.toString());
     }
 
+    public Observable<Folder> createFolder(DocumentPath documentPath) {
+        return cmisService.createFolder(documentPath.toString());
+    }
+
+    public Observable<Boolean> copyDocument(Folder destinationFolder, String documentId) {
+        return Observable.just(cmisService.copyById(destinationFolder, documentId)).map(document -> true);
+    }
+
     public Observable<Boolean> delete(String id) {
         LOGGER.info("Deleting file with id {}", id);
         return cmisService.deleteById(id);
     }
 
+    public Observable<Folder> findAllFolder(DocumentPath folderPath) {
+        return cmisService.getChildrenFolder(folderPath.toString());
+    }
+
     public Observable<Document> findAllByPath(DocumentPath folderPath) {
         LOGGER.info("Looking for all documents in {}", folderPath);
         return cmisService.getChildrenDocument(folderPath.toString())
-                .map(doc -> DocumentFactory.create(doc, this.getBase64OfDoc(doc.getId())));
+                .map(doc -> DocumentFactory.create(doc, getBase64OfDoc(doc.getId())));
     }
 
-    public String getBase64OfDoc(String id) {
+    public Tuple2<String, String> getBase64OfDoc(String id) {
         return this.downloadById(id).map(inputStreamResource -> {
             String base64 = "";
+            byte[] imageByte;
+            String thumb = "";
             try {
                 InputStream is = inputStreamResource.getInputStream();
                 byte[] targetArray = ByteStreams.toByteArray(is);
-                base64 = Base64.getEncoder().encodeToString(targetArray);
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+//                BufferedImage  img = ImageIO.read(is);
+//                img.getScaledInstance(100, 100, BufferedImage.SCALE_SMOOTH);
+
+                BASE64Encoder encoder = new BASE64Encoder();
+//                thumb = encoder.encode(imageBytes);
+                base64 = encoder.encode(targetArray);
+
+                bos.close();
+
+
             } catch (IOException e) {
                 log.error("Error during encoding file in Base64", e);
             }
-            return base64;
+            return Tuple.of(base64, thumb);
         }).toBlocking().first();
     }
 
